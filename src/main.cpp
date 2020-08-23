@@ -8,8 +8,10 @@
 #include <FastLED.h>
 #include <SPI.h>
 #include <Wire.h>
-#include "SparkFun_AS3935.h"
 #include "Adafruit_ST7789.h"
+
+#include "pin_assignments.h"
+#include "lightning_detector.h"
 
 /*
 Main loop of the storm lamp. Initializes and keeps track of:
@@ -27,30 +29,7 @@ Possible future features:
 - Poll a web server for more local weather data to display or use.
 */
 
-#define INDOOR 0x12
-#define OUTDOOR 0xE
-#define LIGHTNING_INT 0x08
-#define DISTURBER_INT 0x04
-#define NOISE_INT 0x01
-
-SparkFun_AS3935 lightning;
-
-// Interrupt pin for lightning detection
-const int lightningInt = 4;
-int spiCS = 7; //SPI chip select pin
-
-// This variable holds the number representing the lightning or non-lightning
-// event issued by the lightning detector.
-int intVal = 0;
-int noise = 2;     // Value between 1-7
-int disturber = 2; // Value between 1-10
-
-// Values for modifying the IC's settings. All of these values are set to their
-// default values.
-byte noiseFloor = 5;
-byte watchDogVal = 2;
-byte spike = 2;
-byte lightningThresh = 1;
+LightningDetector *lightningDetector = nullptr;
 
 // Barometer stuff
 #define PRESH 0x80
@@ -66,38 +45,38 @@ byte lightningThresh = 1;
 #define C12MSB 0x94
 #define C12LSB 0x96
 #define CONVERT 0x24
-#define chipSelectPin 6
+#define PIN_BARO_CS 6
 float A0_;
 float B1_;
 float B2_;
 float C12_;
 
-#define LED_PIN 5
-#define NUM_LEDS 5
-CRGB leds[NUM_LEDS];
-
 // SD pin: 3
 // Display SPI CS pin: 2
 // Display data select pin: 1
-#define TFT_CS 2
-#define TFT_DC 1
-#define TFT_RST 0
-#define SD_CS 3
+#define PIN_TFT_CS 2
+#define PIN_TFT_DC 1
+#define PIN_TFT_RST 0
+#define PIN_SD_CS 3
 
 SdFat SD;                        // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 const uint16_t Display_Color_Magenta = 0xF81F;
 
+#define PIN_LED_STRIP 5
+#define NUM_LEDS 5
+CRGB leds[NUM_LEDS];
+
 //Read registers
 unsigned int readRegister(byte thisRegister)
 {
   unsigned int result = 0; // result to return
-  digitalWrite(chipSelectPin, LOW);
+  digitalWrite(PIN_BARO_CS, LOW);
   delay(20);
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
   SPI.transfer(thisRegister);
   result = SPI.transfer(0x00);
-  digitalWrite(chipSelectPin, HIGH);
+  digitalWrite(PIN_BARO_CS, HIGH);
   SPI.endTransaction();
   return (result);
 }
@@ -127,14 +106,14 @@ float baroPressure()
   A0L = readRegister(A0LSB);
   A0_ = (A0H << 5) + (A0L >> 3) + (A0L & 0x07) / 8.0;
 
-  digitalWrite(chipSelectPin, LOW);
+  digitalWrite(PIN_BARO_CS, LOW);
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
   delay(3);
   SPI.transfer(0x24);
   SPI.transfer(0x00);
-  digitalWrite(chipSelectPin, HIGH);
+  digitalWrite(PIN_BARO_CS, HIGH);
   delay(3);
-  digitalWrite(chipSelectPin, LOW);
+  digitalWrite(PIN_BARO_CS, LOW);
   SPI.transfer(PRESH);
   unsigned int presH = SPI.transfer(0x00);
   delay(3);
@@ -149,7 +128,7 @@ float baroPressure()
   delay(3);
   SPI.transfer(0x00);
   delay(3);
-  digitalWrite(chipSelectPin, HIGH);
+  digitalWrite(PIN_BARO_CS, HIGH);
   SPI.endTransaction();
 
   unsigned long press = ((presH * 256) + presL) / 64;
@@ -163,16 +142,17 @@ float baroPressure()
 
 void setup()
 {
-  // When lightning is detected the interrupt pin goes HIGH.
-  pinMode(lightningInt, INPUT);
-  pinMode(chipSelectPin, OUTPUT);
-  digitalWrite(chipSelectPin, HIGH);
-  pinMode(TFT_CS, OUTPUT);
-  digitalWrite(chipSelectPin, HIGH);
-  pinMode(SD_CS, OUTPUT);
-  digitalWrite(chipSelectPin, HIGH);
-  pinMode(spiCS, OUTPUT);
-  digitalWrite(spiCS, HIGH);
+  // Pre-set all of the SPI chip selects
+  // to output and disable them, so none
+  // of them fight before setup is complete.
+  pinMode(PIN_BARO_CS, OUTPUT);
+  digitalWrite(PIN_BARO_CS, HIGH);
+  pinMode(PIN_TFT_CS, OUTPUT);
+  digitalWrite(PIN_BARO_CS, HIGH);
+  pinMode(PIN_SD_CS, OUTPUT);
+  digitalWrite(PIN_BARO_CS, HIGH);
+  pinMode(PIN_LIGHTNING_CS, OUTPUT);
+  digitalWrite(PIN_LIGHTNING_CS, HIGH);
 
   Serial.begin(115200);
   SPI.begin();
@@ -188,18 +168,11 @@ void setup()
 
   delay(5000);
   // Set up screen
-  Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+  Adafruit_ST7789 tft = Adafruit_ST7789(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
   tft.init(135, 240); // Init ST7789 240x135
   tft.fillScreen(Display_Color_Magenta);
 
-  while (!lightning.beginSPI(spiCS, 2000000))
-  {
-    Serial.println("Lightning Detector did not start up!");
-    delay(1000);
-  }
-  Serial.println("Schmow-ZoW, Lightning Detector Ready!");
-
-  while (!SD.begin(SD_CS, SD_SCK_MHZ(4)))
+  while (!SD.begin(PIN_SD_CS, SD_SCK_MHZ(4)))
   { // ESP32 requires 25 MHz limit
     Serial.println(F("SD begin() failed"));
     delay(1000);
@@ -211,28 +184,9 @@ void setup()
 
   delay(1000);
 
-  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
 
-  // The lightning detector defaults to an indoor setting at
-  // the cost of less sensitivity, if you plan on using this outdoors
-  // uncomment the following line:
-  lightning.setIndoorOutdoor(OUTDOOR);
-
-  lightning.setNoiseLevel(noiseFloor);
-
-  int noiseVal = lightning.readNoiseLevel();
-  Serial.print("Noise Level is set at: ");
-  Serial.println(noiseVal);
-
-  // Watchdog threshold setting can be from 1-10, one being the lowest. Default setting is
-  // two. If you need to check the setting, the corresponding function for
-  // reading the function follows.
-
-  lightning.watchdogThreshold(watchDogVal);
-
-  int watchVal = lightning.readWatchdogThreshold();
-  Serial.print("Watchdog Threshold is set to: ");
-  Serial.println(watchVal);
+  lightningDetector = new LightningDetector();
 }
 
 int k = 0;
@@ -240,35 +194,7 @@ bool avg_pressure_init = false;
 float avg_pressure = 0;
 void loop()
 {
-  // Hardware has alerted us to an event, now we read the interrupt register
-  if (digitalRead(lightningInt) == HIGH)
-  {
-    intVal = lightning.readInterruptReg();
-    if (intVal == NOISE_INT)
-    {
-      Serial.println("Noise.");
-      // Too much noise? Uncomment the code below, a higher number means better
-      // noise rejection.
-      //lightning.setNoiseLevel(noise);
-    }
-    else if (intVal == DISTURBER_INT)
-    {
-      Serial.println("Disturber.");
-      // Too many disturbers? Uncomment the code below, a higher number means better
-      // disturber rejection.
-      //lightning.watchdogThreshold(disturber);
-    }
-    else if (intVal == LIGHTNING_INT)
-    {
-      Serial.println("Lightning Strike Detected!");
-      // Lightning! Now how far away is it? Distance estimation takes into
-      // account any previously seen events in the last 15 seconds.
-      byte distance = lightning.distanceToStorm();
-      Serial.print("Approximately: ");
-      Serial.print(distance);
-      Serial.println("km away!");
-    }
-  }
+  lightningDetector->CheckAndPrintStatus();
   k = (k + 1) % 50;
   if (k == 0)
   {
