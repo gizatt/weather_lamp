@@ -9,12 +9,17 @@
 #include <SPI.h>
 #include <Wire.h>
 #include "Adafruit_ST7789.h"
+#include <WiFiNINA.h>
+#include <WiFiUdp.h>
 
 #include "pin_assignments.h"
 #include "lightning_detector.h"
+#include "time_manager.h"
+#include "secrets.h"
 
 /*
 Main loop of the storm lamp. Initializes and keeps track of:
+- Maintaining an internet connection, for NTP update.
 - The SD card, for both logging + serving the webpage + populating
   the screen.
 - The screen, for displaying current status + data.
@@ -172,6 +177,21 @@ void setup()
   tft.init(135, 240); // Init ST7789 240x135
   tft.fillScreen(Display_Color_Magenta);
 
+  // Wifi Setup
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, pass);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.print("IP number assigned by DHCP is ");
+  Serial.println(WiFi.localIP());
+  
+  setup_time_management();
+  Serial.println(get_current_timestamp());
+
   while (!SD.begin(PIN_SD_CS, SD_SCK_MHZ(4)))
   { // ESP32 requires 25 MHz limit
     Serial.println(F("SD begin() failed"));
@@ -186,7 +206,8 @@ void setup()
 
   FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
 
-  while (!lightning_detector.SetupDetector()){
+  while (!lightning_detector.SetupDetector())
+  {
     delay(1000);
   }
   if (!lightning_detector.SetupLogging(&SD, "/LGHT.LOG"))
@@ -225,7 +246,7 @@ void loop()
     FastLED.show();
     delay(1);
   }
-  for (int i = NUM_LEDS-1; i >= 0; i--)
+  for (int i = NUM_LEDS - 1; i >= 0; i--)
   {
     leds[i] = CRGB(255, 0, 0);
     FastLED.show();
