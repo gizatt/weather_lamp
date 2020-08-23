@@ -1,21 +1,42 @@
 #include "lightning_detector.h"
 #include "pin_assignments.h"
 
-LightningDetector::LightningDetector(SdFat *SD, String log_path)
+LightningDetector::LightningDetector()
+{
+}
+
+bool LightningDetector::SetupDetector(){
+    pinMode(PIN_LIGHTNING_INT, INPUT);
+
+    bool success = _lightning.beginSPI(PIN_LIGHTNING_CS, 2000000);
+    if (success){
+        Serial.println("Schmow-ZoW, Lightning Detector Ready!");
+        this->ResendConfiguration();
+    } else {
+        Serial.println("Lightning Detector did not start up!");
+    }
+    return success;
+}
+
+bool LightningDetector::SetupLogging(SdFat *SD, String log_path)
 {
     _SD = SD;
     _log_path = log_path;
-
-    pinMode(PIN_LIGHTNING_INT, INPUT);
-
-    while (!_lightning.beginSPI(PIN_LIGHTNING_CS, 2000000))
+    // Trial run a log write to see if it works.
+    File log_file;
+    bool successful_write = false;
+    if (_SD)
     {
-        Serial.println("Lightning Detector did not start up!");
-        delay(1000);
+        log_file = _SD->open(_log_path, O_RDWR | O_CREAT | O_AT_END);
+        if (log_file)
+        {
+            log_file.print(millis());
+            log_file.println(": new log entry.");
+            log_file.close();
+            successful_write = true;
+        }
     }
-    Serial.println("Schmow-ZoW, Lightning Detector Ready!");
-
-    this->ResendConfiguration();
+    return successful_write;
 }
 
 void LightningDetector::ResendConfiguration()
@@ -48,21 +69,16 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
 {
     // Hardware has alerted us to an event, now we read the interrupt register
     int interrupt_val = -1;
-    Serial.println("loop");
     if (digitalRead(PIN_LIGHTNING_INT) == HIGH)
     {
         interrupt_val = _lightning.readInterruptReg();
         // Open the logging file, if it exists
-        // File log_file;
+        File log_file;
         bool valid_log_file = false;
-        Serial.println("Trying to read SD");
 
-        /* if (_SD)
+        if (_SD)
         {
             log_file = _SD->open(_log_path, O_RDWR | O_CREAT | O_AT_END);
-            Serial.print("Opened log file");
-            Serial.println(log_file);
-            Serial.flush();
             if (log_file)
             {
                 valid_log_file = true;
@@ -74,7 +90,7 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
                 Serial.print("Error opening logfile ");
                 Serial.println(_log_path);
             }
-        }*/
+        }
         if (verbose)
         {
             Serial.print(millis());
@@ -82,7 +98,7 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
         }
         if (valid_log_file)
         {
-            //log_file.print(": ");
+            log_file.print(": ");
         }
         byte distance = 0;
         switch (interrupt_val)
@@ -94,11 +110,8 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
             }
             if (valid_log_file)
             {
-                //log_file.println("Noise.");
+                log_file.println("Noise.");
             }
-            // Too much noise? Uncomment the code below, a higher number means better
-            // noise rejection.
-            //lightning.setNoiseLevel(noise);
             break;
         case AS3935_DISTURBER_INT:
             if (verbose)
@@ -107,11 +120,8 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
             }
             if (valid_log_file)
             {
-                //log_file.println("Disturber.");
+                log_file.println("Disturber.");
             }
-            // Too many disturbers? Uncomment the code below, a higher number means better
-            // disturber rejection.
-            //lightning.watchdogThreshold(disturber);
             break;
         case AS3935_LIGHTNING_INT:
             distance = _lightning.distanceToStorm();
@@ -123,9 +133,9 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
             }
             if (valid_log_file)
             {
-                //log_file.print("Lightning detected approximately ");
-                //log_file.print(distance);
-                //log_file.println("km away!");
+                log_file.print("Lightning detected approximately ");
+                log_file.print(distance);
+                log_file.println("km away!");
             }
             break;
         default:
@@ -137,11 +147,14 @@ int LightningDetector::CheckAndLogStatus(bool verbose)
             }
             if (valid_log_file)
             {
-                //log_file.print("Unknown interrupt val read: ");
-                //log_file.print(interrupt_val);
-                //log_file.print("\n");
+                log_file.print("Unknown interrupt val read: ");
+                log_file.print(interrupt_val);
+                log_file.print("\n");
             }
             break;
+        }
+        if (valid_log_file){
+            log_file.close();
         }
     }
     return interrupt_val;

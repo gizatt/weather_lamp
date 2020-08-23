@@ -24,7 +24,9 @@ class LightningDetector
     SdFat *_SD = nullptr;
 
 public:
-    LightningDetector(SdFat *SD, String log_path);
+    LightningDetector();
+    bool SetupDetector();
+    bool SetupLogging(SdFat *SD, String log_path);
     void ResendConfiguration();
-    int CheckAndLogStatus(bool verbose = false);
+    int CheckAndLogStatus(bool verbose = true);
 };

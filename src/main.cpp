@@ -29,7 +29,7 @@ Possible future features:
 - Poll a web server for more local weather data to display or use.
 */
 
-LightningDetector *lightningDetector = nullptr;
+LightningDetector lightning_detector;
 
 // Barometer stuff
 #define PRESH 0x80
@@ -175,7 +175,6 @@ void setup()
   while (!SD.begin(PIN_SD_CS, SD_SCK_MHZ(4)))
   { // ESP32 requires 25 MHz limit
     Serial.println(F("SD begin() failed"));
-    Serial.flush();
     delay(1000);
   }
 
@@ -187,7 +186,13 @@ void setup()
 
   FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
 
-  lightningDetector = new LightningDetector(nullptr, "/LGHT.LOG");
+  while (!lightning_detector.SetupDetector()){
+    delay(1000);
+  }
+  if (!lightning_detector.SetupLogging(&SD, "/LGHT.LOG"))
+  {
+    Serial.println("Failed to setup logging for lightning detector.");
+  }
 }
 
 int k = 0;
@@ -195,7 +200,7 @@ bool avg_pressure_init = false;
 float avg_pressure = 0;
 void loop()
 {
-  lightningDetector->CheckAndLogStatus(true);
+  lightning_detector.CheckAndLogStatus(true);
   k = (k + 1) % 50;
   if (k == 0)
   {
@@ -214,13 +219,13 @@ void loop()
   }
   delay(50); // Slow it down.
 
-  for (int i = 0; i <= NUM_LEDS; i++)
+  for (int i = 0; i < NUM_LEDS; i++)
   {
     leds[i] = CRGB(0, 0, 255);
     FastLED.show();
     delay(1);
   }
-  for (int i = NUM_LEDS; i >= 0; i--)
+  for (int i = NUM_LEDS-1; i >= 0; i--)
   {
     leds[i] = CRGB(255, 0, 0);
     FastLED.show();
