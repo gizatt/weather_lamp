@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SparkFun_AS3935.h"
+#include <SDfat.h>
 
 #define AS3935_INDOOR 0x12
 #define AS3935_OUTDOOR 0xE
@@ -10,7 +11,7 @@
 
 class LightningDetector
 {
-    SparkFun_AS3935 lightning;
+    SparkFun_AS3935 _lightning;
     // Values for modifying the IC's settings. All of these values are set to their
     // default values.
     byte _noiseFloor = 5;
@@ -18,8 +19,12 @@ class LightningDetector
     byte _spike = 2;
     byte _lightningThresh = 1;
 
+    // Logging info.
+    String _log_path;
+    SdFat *_SD = nullptr;
+
 public:
-    LightningDetector();
+    LightningDetector(SdFat *SD, String log_path);
     void ResendConfiguration();
-    int CheckAndPrintStatus();
+    int CheckAndLogStatus(bool verbose = false);
 };

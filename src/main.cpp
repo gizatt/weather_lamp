@@ -175,6 +175,7 @@ void setup()
   while (!SD.begin(PIN_SD_CS, SD_SCK_MHZ(4)))
   { // ESP32 requires 25 MHz limit
     Serial.println(F("SD begin() failed"));
+    Serial.flush();
     delay(1000);
   }
 
@@ -186,7 +187,7 @@ void setup()
 
   FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
 
-  lightningDetector = new LightningDetector();
+  lightningDetector = new LightningDetector(nullptr, "/LGHT.LOG");
 }
 
 int k = 0;
@@ -194,7 +195,7 @@ bool avg_pressure_init = false;
 float avg_pressure = 0;
 void loop()
 {
-  lightningDetector->CheckAndPrintStatus();
+  lightningDetector->CheckAndLogStatus(true);
   k = (k + 1) % 50;
   if (k == 0)
   {
