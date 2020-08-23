@@ -1,5 +1,4 @@
 #include "time_manager.h"
-#include "secrets.h"
 
 #define NTP_PACKET_SIZE 48 // NTP time is in the first 48 bytes of message
 byte packet_buffer[NTP_PACKET_SIZE];
@@ -104,4 +103,5 @@ String get_current_timestamp()
     Serial.print(" ");
     Serial.print(year());
     Serial.println();
+    return "todo";
 }

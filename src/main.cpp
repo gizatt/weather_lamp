@@ -68,10 +68,6 @@ SdFat SD;                        // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 const uint16_t Display_Color_Magenta = 0xF81F;
 
-#define PIN_LED_STRIP 5
-#define NUM_LEDS 5
-CRGB leds[NUM_LEDS];
-
 //Read registers
 unsigned int readRegister(byte thisRegister)
 {
@@ -163,15 +159,8 @@ void setup()
   SPI.begin();
   SPI.setClockDivider(SPI_CLOCK_DIV16);
 
-  // Barometer setup
-  // initalize the data ready and chip select pins:
-  delay(100);
+  delay(500);
 
-  // todo: read these multiple times and get consensus.
-  // I'm worried these lines are so noisy that this is risky...
-  delay(100);
-
-  delay(5000);
   // Set up screen
   Adafruit_ST7789 tft = Adafruit_ST7789(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
   tft.init(135, 240); // Init ST7789 240x135
@@ -190,7 +179,7 @@ void setup()
   Serial.println(WiFi.localIP());
   
   setup_time_management();
-  Serial.println(get_current_timestamp());
+  get_current_timestamp();
 
   while (!SD.begin(PIN_SD_CS, SD_SCK_MHZ(4)))
   { // ESP32 requires 25 MHz limit
@@ -202,18 +191,19 @@ void setup()
   stat = reader.drawBMP("/ASSETS/LUCIE.BMP", tft, 0, 0);
   reader.printStatus(stat);
 
-  delay(1000);
-
-  FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
+  delay(100);
 
   while (!lightning_detector.SetupDetector())
   {
     delay(1000);
+    Serial.println("Retrying to set up lightning detector...");
   }
+  Serial.println("Setting up logging...");
   if (!lightning_detector.SetupLogging(&SD, "/LGHT.LOG"))
   {
     Serial.println("Failed to setup logging for lightning detector.");
   }
+  Serial.println("Done with setup.");
 }
 
 int k = 0;
@@ -239,17 +229,4 @@ void loop()
     Serial.println(" kPa");
   }
   delay(50); // Slow it down.
-
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    leds[i] = CRGB(0, 0, 255);
-    FastLED.show();
-    delay(1);
-  }
-  for (int i = NUM_LEDS - 1; i >= 0; i--)
-  {
-    leds[i] = CRGB(255, 0, 0);
-    FastLED.show();
-    delay(1);
-  }
 }
