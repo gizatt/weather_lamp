@@ -28,10 +28,10 @@ cache:
     - "~/.platformio"
 
 env:
-  - PLATFORMIO_CI_SRC=src
+  - PLATFORMIO_CI_SRC=src/main.cpp
 
 install:
   - pip install -U platformio
 
 script:
-  - platformio ci --project-conf=/path/to/platoformio.ini
+  - platformio ci --project-conf=platformio.ini
