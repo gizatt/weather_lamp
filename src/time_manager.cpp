@@ -79,29 +79,32 @@ bool setup_time_management()
     return true;
 }
 
-void printDigits(int digits)
+String printDigits(int digits)
 {
     // utility function for digital clock display: prints preceding colon and leading 0
-    Serial.print(":");
+    String out = "";
+    out += ":";
     if (digits < 10)
-        Serial.print('0');
-    Serial.print(digits);
+        out += '0';
+    out += digits;
+    return out;
 }
 
 String get_current_timestamp()
 {
     // digital clock display of the time
-    Serial.print(hour());
-    printDigits(minute());
-    printDigits(second());
-    Serial.print(" ");
-    Serial.print(dayShortStr(weekday()));
-    Serial.print(" ");
-    Serial.print(day());
-    Serial.print(" ");
-    Serial.print(monthShortStr(month()));
-    Serial.print(" ");
-    Serial.print(year());
-    Serial.println();
-    return "todo";
+    String out = "";
+    out += hour();
+
+    out += printDigits(minute());
+    out += printDigits(second());
+    out += " ";
+    out += dayShortStr(weekday());
+    out += " ";
+    out += day();
+    out += " ";
+    out += monthShortStr(month());
+    out += " ";
+    out += year();
+    return out;
 }

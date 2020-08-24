@@ -14,14 +14,25 @@ class LightningDetector
     SparkFun_AS3935 _lightning;
     // Values for modifying the IC's settings. All of these values are set to their
     // default values.
-    byte _noiseFloor = 5;
-    byte _watchDogVal = 2;
-    byte _spike = 2;
-    byte _lightningThresh = 1;
+    
+    byte _desired_noise_floor = 5;
+    byte _desired_watchdog_thresh = 2;
+    byte _desired_spike_thresh = 2;
+
+    byte _current_noise_floor = 5;
+    byte _current_watchdog_thresh = 2;
+    byte _current_spike_thresh = 2;
 
     // Logging info.
     String _log_path;
     SdFat *_SD = nullptr;
+
+    long int _millis_of_last_strike;
+    time_t _time_of_last_strike;
+    bool _time_of_last_strike_valid = false;
+    long int _millis_of_last_disturber;
+    time_t _time_of_last_disturber;
+    bool _time_of_last_disturber_valid = false;
 
 public:
     LightningDetector();
@@ -29,4 +40,6 @@ public:
     bool SetupLogging(SdFat *SD, String log_path);
     void ResendConfiguration();
     int CheckAndLogStatus(bool verbose = true);
+    long int get_millis_since_last_strike();
+    long int get_millis_since_last_disturber();
 };
