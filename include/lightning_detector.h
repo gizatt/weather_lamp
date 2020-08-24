@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SparkFun_AS3935.h"
-#include <SDfat.h>
+#include <SdFat.h>
 
 #define AS3935_INDOOR 0x12
 #define AS3935_OUTDOOR 0xE

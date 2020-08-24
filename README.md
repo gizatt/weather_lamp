@@ -4,7 +4,6 @@ Weather Lamp
 Super WIP.
 
 ## Layout
---------
 
 Built around an Arduino MKR Wifi 1010.
 

@@ -3,7 +3,7 @@
 #include <Adafruit_SPITFT.h>
 #include <Adafruit_SPITFT_Macros.h>
 #include <gfxfont.h>
-#include <SDfat.h>                // SD card & FAT filesystem library
+#include <SdFat.h>                // SD card & FAT filesystem library
 #include <Adafruit_ImageReader.h> // Image-reading functions
 #include <FastLED.h>
 #include <SPI.h>
@@ -188,9 +188,9 @@ void setup()
   delay(500);
 
   // Set up screen
-  Adafruit_ST7789 tft = Adafruit_ST7789(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
-  tft.init(135, 240); // Init ST7789 240x135
-  tft.fillScreen(Display_Color_Magenta);
+  //Adafruit_ST7789 tft = Adafruit_ST7789(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
+  //tft.init(135, 240); // Init ST7789 240x135
+  //tft.fillScreen(Display_Color_Magenta);
 
   byte mac[6];
   WiFi.macAddress(mac);
@@ -218,9 +218,9 @@ void setup()
     delay(1000);
   }
 
-  ImageReturnCode stat;
-  stat = reader.drawBMP("/ASSETS/LUCIE.BMP", tft, 0, 0);
-  reader.printStatus(stat);
+  //ImageReturnCode stat;
+  //stat = reader.drawBMP("/ASSETS/LUCIE.BMP", tft, 0, 0);
+  //reader.printStatus(stat);
 
   delay(100);
 

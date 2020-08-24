@@ -21,17 +21,18 @@
 
 language: python
 python:
-  - "3.8"
+    - "3.8"
 
+# Cache PlatformIO packages using Travis CI container-based infrastructure
+sudo: false
 cache:
-  directories:
-    - "~/.platformio"
-
-env:
-  - PLATFORMIO_CI_SRC=src/main.cpp
+    directories:
+        - "~/.platformio"
 
 install:
-  - pip install -U platformio
+    - pip install -U platformio
+    - platformio update
+    - export PLATFORMIO_BUILD_FLAGS="-D WITHOUT_SECRETS"
 
 script:
-  - platformio ci --project-conf=platformio.ini
+    - platformio run -v -e mkrwifi1010
