@@ -69,7 +69,7 @@ Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 const uint16_t Display_Color_Magenta = 0xF81F;
 
 #define PIN_LED_STRIP 5
-#define NUM_LEDS 100
+#define NUM_LEDS 150
 CRGB leds[NUM_LEDS];
 float curr_r = 0;
 float curr_g = 0;
@@ -272,17 +272,16 @@ void loop()
   auto tmp = lightning_detector.get_millis_since_last_disturber();
   if (tmp > 0){
     new_r = 1. - float(tmp) / 1000.;
-    new_r = max(min(new_r, 1.), 0.);
   }
+  new_r = max(min(new_r, 1.), 0.025);
   float new_b = 0.;
   tmp = lightning_detector.get_millis_since_last_strike();
   if (tmp > 0){
     new_b = 1. - float(tmp) / 1000.;
-    new_b = max(min(new_b, 1.), 0.);
   }
+  new_b = max(min(new_b, 1.), 0.05);
   
-
-  float new_g = float(random(0, 10));
+  float new_g = float(random(0, 3)) / 255.;
 
   float alpha = 0.9;
   curr_r = new_r; // curr_r * alpha + new_r * alpha;
@@ -293,7 +292,7 @@ void loop()
   {
     leds[i] = leds[i-1];
   }
-  leds[0] = CRGB(byte(curr_r*255), byte(curr_g*255), byte(curr_b)*255);
+  leds[0] = CRGB(byte(curr_r*255), byte(curr_g*255), byte(curr_b*255));
   FastLED.show();
   delay(10);
 
