@@ -14,6 +14,7 @@
 
 #include "pin_assignments.h"
 #include "lightning_detector.h"
+#include "barometer.h"
 #include "time_manager.h"
 #include "secrets.h"
 
@@ -35,118 +36,17 @@ Possible future features:
 */
 
 LightningDetector lightning_detector;
-
-// Barometer stuff
-#define PRESH 0x80
-#define PRESL 0x82
-#define TEMPH 0x84
-#define TEMPL 0x86
-#define A0MSB 0x88
-#define A0LSB 0x8A
-#define B1MSB 0x8C
-#define B1LSB 0x8E
-#define B2MSB 0x90
-#define B2LSB 0x92
-#define C12MSB 0x94
-#define C12LSB 0x96
-#define CONVERT 0x24
-#define PIN_BARO_CS 6
-float A0_;
-float B1_;
-float B2_;
-float C12_;
-
-// SD pin: 3
-// Display SPI CS pin: 2
-// Display data select pin: 1
-#define PIN_TFT_CS 2
-#define PIN_TFT_DC 1
-#define PIN_TFT_RST 0
-#define PIN_SD_CS 3
+Barometer barometer;
 
 SdFat SD;                        // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 const uint16_t Display_Color_Magenta = 0xF81F;
 
-#define PIN_LED_STRIP 5
 #define NUM_LEDS 150
 CRGB leds[NUM_LEDS];
 float curr_r = 0;
 float curr_g = 0;
 float curr_b = 0;
-
-//Read registers
-unsigned int readRegister(byte thisRegister)
-{
-  unsigned int result = 0; // result to return
-  digitalWrite(PIN_BARO_CS, LOW);
-  delay(20);
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
-  SPI.transfer(thisRegister);
-  result = SPI.transfer(0x00);
-  digitalWrite(PIN_BARO_CS, HIGH);
-  SPI.endTransaction();
-  return (result);
-}
-
-//read pressure
-float baroPressure()
-{
-
-  // read registers that contain the chip-unique parameters to do the math
-  unsigned int A0H = readRegister(A0MSB);
-  unsigned int A0L = readRegister(A0LSB);
-  A0_ = (A0H << 5) + (A0L >> 3) + (A0L & 0x07) / 8.0;
-
-  unsigned int B1H = readRegister(B1MSB);
-  unsigned int B1L = readRegister(B1LSB);
-  B1_ = ((((B1H & 0x1F) * 0x100) + B1L) / 8192.0) - 3;
-
-  unsigned int B2H = readRegister(B2MSB);
-  unsigned int B2L = readRegister(B2LSB);
-  B2_ = ((((B2H - 0x80) << 8) + B2L) / 16384.0) - 2;
-
-  unsigned int C12H = readRegister(C12MSB);
-  unsigned int C12L = readRegister(C12LSB);
-  C12_ = (((C12H * 0x100) + C12L) / 16777216.0);
-
-  A0H = readRegister(A0MSB);
-  A0L = readRegister(A0LSB);
-  A0_ = (A0H << 5) + (A0L >> 3) + (A0L & 0x07) / 8.0;
-
-  digitalWrite(PIN_BARO_CS, LOW);
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
-  delay(3);
-  SPI.transfer(0x24);
-  SPI.transfer(0x00);
-  digitalWrite(PIN_BARO_CS, HIGH);
-  delay(3);
-  digitalWrite(PIN_BARO_CS, LOW);
-  SPI.transfer(PRESH);
-  unsigned int presH = SPI.transfer(0x00);
-  delay(3);
-  SPI.transfer(PRESL);
-  unsigned int presL = SPI.transfer(0x00);
-  delay(3);
-  SPI.transfer(TEMPH);
-  unsigned int tempH = SPI.transfer(0x00);
-  delay(3);
-  SPI.transfer(TEMPL);
-  unsigned int tempL = SPI.transfer(0x00);
-  delay(3);
-  SPI.transfer(0x00);
-  delay(3);
-  digitalWrite(PIN_BARO_CS, HIGH);
-  SPI.endTransaction();
-
-  unsigned long press = ((presH * 256) + presL) / 64;
-  unsigned long temp = ((tempH * 256) + tempL) / 64;
-
-  float pressure = A0_ + (B1_ + C12_ * temp) * press + B2_ * temp;
-  float preskPa = pressure * (65.0 / 1023.0) + 50.0;
-
-  return (preskPa);
-}
 
 void printMacAddress(byte mac[]) {
   for (int i = 5; i >= 0; i--) {
@@ -251,22 +151,7 @@ float avg_pressure = 0;
 void loop()
 {
   lightning_detector.CheckAndLogStatus(true);
-  k = (k + 1) % 500; // Every 5 seconds
-  if (k == 0)
-  {
-    Serial.print("The pressure is : ");
-    if (avg_pressure_init)
-    {
-      avg_pressure = avg_pressure * 0.9 + baroPressure() * 0.1;
-    }
-    else
-    {
-      avg_pressure = baroPressure();
-      avg_pressure_init = true;
-    }
-    Serial.print(avg_pressure);
-    Serial.println(" kPa");
-  }
+  barometer.Update(true);
 
   float new_r = 0.;
   auto tmp = lightning_detector.get_millis_since_last_disturber();
