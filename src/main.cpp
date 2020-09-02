@@ -134,6 +134,10 @@ void setup()
   {
     Serial.println("Failed to setup logging for lightning detector.");
   }
+  if (!barometer.SetupLogging(&SD, "/BARO.LOG"))
+  {
+    Serial.println("Failed to setup logging for barometer.");
+  }
   Serial.println("Done with setup.");
 
   FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);

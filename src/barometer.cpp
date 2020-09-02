@@ -18,7 +18,8 @@
 
 #define MIN_REASONABLE_PRESSURE_KPA 85.
 #define MAX_REASONABLE_PRESSURE_KPA 115.
-#define UPDATE_PERIOD_MS 5000
+#define UPDATE_PERIOD_MS 1000
+#define LOG_PERIOD_MS 30000
 #define ESTIMATE_ALPHA 0.9
 
 //Read registers
@@ -37,6 +38,10 @@ static unsigned int readRegister(byte thisRegister)
 
 Barometer::Barometer()
 {
+    _raw_pressure_read_buffer_head = 0;
+    for (int k = 0; k < PRESSURE_READ_BUFFER_LEN; k++){
+        _raw_pressure_read_buffer[k] = 0.0;
+    }
 }
 
 void Barometer::ReadConfigValues(){
@@ -87,10 +92,22 @@ bool Barometer::is_pressure_sane(){
             _pressure_estimate < MAX_REASONABLE_PRESSURE_KPA);
 }
 
-void Barometer::SetupLogging(SdFat *SD, String log_path)
+bool Barometer::SetupLogging(SdFat *SD, String log_path)
 {
     _SD = SD;
     _log_path = log_path;
+    // Trial run a log file open to see if it works.
+    File log_file;
+    bool successful_open = false;
+    if (_SD)
+    {
+        log_file = _SD->open(_log_path, O_RDWR | O_CREAT | O_AT_END);
+        if (log_file)
+        {
+            successful_open = true;
+        }
+    }
+    return successful_open;
 }
 
 
@@ -130,9 +147,13 @@ float Barometer::ReadRawPressure()
     return (preskPa);
 }
 
-float Barometer::UpdateAndLogPressureEstimate(bool verbose){
-    String out_string = get_current_timestamp() + "; ";
+float Barometer::UpdatePressureEstimate(){
     float new_raw_pressure = ReadRawPressure();
+    // Log pressure into circular buffer for display.
+    _raw_pressure_read_buffer[_raw_pressure_read_buffer_head] = new_raw_pressure;
+    _raw_pressure_read_buffer_head =
+        (_raw_pressure_read_buffer_head + 1)
+        % PRESSURE_READ_BUFFER_LEN;
     if (is_pressure_sane()){
         _pressure_estimate = _pressure_estimate * ESTIMATE_ALPHA +
                              new_raw_pressure * (1. - ESTIMATE_ALPHA);
@@ -140,10 +161,13 @@ float Barometer::UpdateAndLogPressureEstimate(bool verbose){
         ReadConfigValues();
         _pressure_estimate = new_raw_pressure;
     }
+    return _pressure_estimate;
+}
+
+void Barometer::LogPressureEstimate(bool verbose){
+    String out_string = get_current_timestamp() + "; ";
     out_string += "pressure ";
     out_string += _pressure_estimate;
-    out_string += "; raw ";
-    out_string += new_raw_pressure;
     if (_SD)
     {
         File log_file = _SD->open(_log_path, O_RDWR | O_CREAT | O_AT_END);
@@ -162,7 +186,6 @@ float Barometer::UpdateAndLogPressureEstimate(bool verbose){
     {
         Serial.println(out_string);
     }
-    return _pressure_estimate;
 }
 
 void Barometer::Update(bool verbose){
@@ -171,7 +194,12 @@ void Barometer::Update(bool verbose){
     // update and logging every 5 seconds.
     if (now < _last_read_millis || 
         now > (_last_read_millis + UPDATE_PERIOD_MS)) {
-        UpdateAndLogPressureEstimate(verbose);
+        UpdatePressureEstimate();
         _last_read_millis = now;
+    }
+    if (now < _last_log_millis || 
+        now > (_last_log_millis + LOG_PERIOD_MS)) {
+        LogPressureEstimate(verbose);
+        _last_log_millis = now;
     }
 }
