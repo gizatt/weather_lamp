@@ -42,7 +42,9 @@ SdFat SD;                        // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 const uint16_t Display_Color_Magenta = 0xF81F;
 
-#define NUM_LEDS 150
+#define PIN_LED_STRIP 0
+#define NUM_LEDS 50
+
 CRGB leds[NUM_LEDS];
 float curr_r = 0;
 float curr_g = 0;
@@ -81,10 +83,9 @@ void setup()
 
   // Turn off strip so the Wifi has as much power to
   // connect as possible
-  FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
-  FastLED.clear();
-  FastLED.show();
+  FastLED.addLeds<WS2812B, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 250);
+  FastLED.clear(true);
   delay(500);
 
   // Set up screen

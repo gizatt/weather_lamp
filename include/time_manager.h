@@ -22,8 +22,8 @@ static const char ntpServerName[] = "us.pool.ntp.org";
 //static const char ntpServerName[] = "time-c.timefreq.bldrdoc.gov";
 
 // static const int timeZone = 1;     // Central European Time
-static const int timeZone = -5; // Eastern Standard Time (USA)
-//const int timeZone = -4;  // Eastern Daylight Time (USA)
+// static const int timeZone = -5; // Eastern Standard Time (USA)
+static const int timeZone = -4;  // Eastern Daylight Time (USA)
 //const int timeZone = -8;  // Pacific Standard Time (USA)
 //const int timeZone = -7;  // Pacific Daylight Time (USA)
 
