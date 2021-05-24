@@ -15,13 +15,13 @@ class LightningDetector
     // Values for modifying the IC's settings. All of these values are set to their
     // default values.
     
-    byte _desired_noise_floor = 5;
-    byte _desired_watchdog_thresh = 2;
-    byte _desired_spike_thresh = 2;
+    byte _desired_noise_floor = 2;
+    byte _desired_watchdog_thresh = 3;
+    byte _desired_spike_thresh = 0;
 
-    byte _current_noise_floor = 5;
-    byte _current_watchdog_thresh = 2;
-    byte _current_spike_thresh = 2;
+    byte _current_noise_floor = 7;
+    byte _current_watchdog_thresh = 7;
+    byte _current_spike_thresh = 7;
 
     // Logging info.
     String _log_path;

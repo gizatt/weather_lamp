@@ -14,6 +14,7 @@
 
 #include "pin_assignments.h"
 #include "lightning_detector.h"
+#include "lightning_scraper.h"
 #include "barometer.h"
 #include "time_manager.h"
 #include "secrets.h"
@@ -36,6 +37,7 @@ Possible future features:
 */
 
 LightningDetector lightning_detector;
+LightningScraper lightning_scraper;
 Barometer barometer;
 
 SdFat SD;                        // SD card filesystem
@@ -43,9 +45,15 @@ Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 const uint16_t Display_Color_Magenta = 0xF81F;
 
 #define PIN_LED_STRIP 0
-#define NUM_LEDS 50
+#define NUM_LEDS_1 150
+#define NUM_LEDS_2 60
+#define NUM_LEDS_3 60
+#define NUM_LEDS_4 60
 
-CRGB leds[NUM_LEDS];
+CRGB leds_1[NUM_LEDS_1];
+CRGB leds_2[NUM_LEDS_2];
+CRGB leds_3[NUM_LEDS_3];
+CRGB leds_4[NUM_LEDS_4];
 float curr_r = 0;
 float curr_g = 0;
 float curr_b = 0;
@@ -83,10 +91,23 @@ void setup()
 
   // Turn off strip so the Wifi has as much power to
   // connect as possible
-  FastLED.addLeds<WS2812B, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, 250);
+  FastLED.addLeds<WS2812B, PIN_LED_STRIP_1, GRB>(leds_1, NUM_LEDS_1);
+  FastLED.addLeds<WS2812B, PIN_LED_STRIP_2, GRB>(leds_2, NUM_LEDS_2);
+  FastLED.addLeds<WS2812B, PIN_LED_STRIP_3, GRB>(leds_3, NUM_LEDS_3);
+  FastLED.addLeds<WS2812B, PIN_LED_STRIP_4, GRB>(leds_4, NUM_LEDS_4);
+  FastLED.setMaxPowerInVoltsAndMilliamps(6, 4000);
   FastLED.clear(true);
+
+  // Set up the
+  pinMode(PIN_LED_CLUSTER_1, OUTPUT);
+  digitalWrite(PIN_LED_CLUSTER_1, 0);
+  pinMode(PIN_LED_CLUSTER_2, OUTPUT);
+  digitalWrite(PIN_LED_CLUSTER_2, 0);
+  pinMode(PIN_LED_CLUSTER_3, OUTPUT);
+  digitalWrite(PIN_LED_CLUSTER_3, 0);
+
   delay(500);
+
 
   // Set up screen
   //Adafruit_ST7789 tft = Adafruit_ST7789(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
@@ -103,7 +124,7 @@ void setup()
   Serial.println(ssid);
   WiFi.begin(ssid, pass);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED){
     delay(500);
     Serial.print(".");
   }
@@ -112,6 +133,15 @@ void setup()
   
   setup_time_management();
   Serial.println("Current time: " + get_current_timestamp());
+
+  for (int i = 0; i < 100; i++){
+    bool success = lightning_scraper.SetupConnection();
+    if (success){
+      break;
+    }
+    delay(1000);
+  }
+
 
   while (!SD.begin(PIN_SD_CS, SD_SCK_MHZ(4)))
   { // ESP32 requires 25 MHz limit
@@ -141,16 +171,36 @@ void setup()
   }
   Serial.println("Done with setup.");
 
-  FastLED.addLeds<WS2812, PIN_LED_STRIP, GRB>(leds, NUM_LEDS);
-  for (int i = 0; i < NUM_LEDS; i++)
+  for (int i = 0; i < NUM_LEDS_1; i++)
   {
-    leds[i] = CRGB(i % 255, i*2 % 255, i*3 % 255);
+    leds_1[i] = CRGB(i % 255, i*2 % 255, i*3 % 255);
     FastLED.show();
-    delay(5);
+    delay(1);
   }
+  for (int i = 0; i < NUM_LEDS_2; i++)
+  {
+    leds_2[i] = CRGB(i % 255, i*2 % 255, i*3 % 255);
+    FastLED.show();
+    delay(1);
+  }
+  for (int i = 0; i < NUM_LEDS_3; i++)
+  {
+    leds_3[i] = CRGB(i % 255, i*2 % 255, i*3 % 255);
+    FastLED.show();
+    delay(1);
+  }
+  for (int i = 0; i < NUM_LEDS_4; i++)
+  {
+    leds_4[i] = CRGB(i % 255, i*2 % 255, i*3 % 255);
+    FastLED.show();
+    delay(1);
+  }
+  
 }
 
 int k = 0;
+long int last_led_cluster_flip = 0;
+int led_cluster_state = 0;
 bool avg_pressure_init = false;
 float avg_pressure = 0;
 void loop()
@@ -161,7 +211,7 @@ void loop()
   float new_r = 0.;
   auto tmp = lightning_detector.get_millis_since_last_disturber();
   if (tmp > 0){
-    new_r = 1. - float(tmp) / 1000.;
+    new_r = 0.05*(1. - float(tmp) / 1000.);
   }
   new_r = max(min(new_r, 1.), 0.025);
   float new_b = 0.;
@@ -178,12 +228,36 @@ void loop()
   curr_g = curr_g * alpha + new_g * (1. - alpha);
   curr_b = new_b; // curr_b * alpha + new_b * alpha;
 
-  for (int i = NUM_LEDS-1; i > 0; i--)
+  leds_2[0] = leds_1[NUM_LEDS_1-1];
+  leds_3[0] = leds_2[NUM_LEDS_2-1];
+  leds_4[0] = leds_3[NUM_LEDS_3-1];
+  for (int i = NUM_LEDS_1-1; i > 0; i--)
   {
-    leds[i] = leds[i-1];
+    leds_1[i] = leds_1[i-1];
   }
-  leds[0] = CRGB(byte(curr_r*255), byte(curr_g*255), byte(curr_b*255));
+  for (int i = NUM_LEDS_2-1; i > 0; i--)
+  {
+    leds_2[i] = leds_2[i-1];
+  }
+  for (int i = NUM_LEDS_3-1; i > 0; i--)
+  {
+    leds_3[i] = leds_3[i-1];
+  }
+  for (int i = NUM_LEDS_4-1; i > 0; i--)
+  {
+    leds_4[i] = leds_4[i-1];
+  }
+  leds_1[0] = CRGB(byte(curr_r*255), byte(curr_g*255), byte(curr_b*255));
   FastLED.show();
+
+  long int since_cluster_flip = millis() - last_led_cluster_flip;
+  if (since_cluster_flip < 0 || since_cluster_flip > 5000){
+    last_led_cluster_flip = millis();
+    led_cluster_state = 1 - led_cluster_state;
+    digitalWrite(PIN_LED_CLUSTER_1, led_cluster_state);
+    digitalWrite(PIN_LED_CLUSTER_2, led_cluster_state);
+    digitalWrite(PIN_LED_CLUSTER_3, led_cluster_state);
+  }
   delay(10);
 
 }

@@ -28,7 +28,7 @@ public:
     Barometer();
     void ReadConfigValues();
     bool SetupLogging(SdFat *SD, String log_path);
-    bool is_pressure_sane();
+    bool is_pressure_sane(float pressure);
     float get_pressure_estimate(){
         return _pressure_estimate;
     }

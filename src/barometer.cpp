@@ -16,8 +16,8 @@
 #define C12LSB 0x96
 #define CONVERT 0x24
 
-#define MIN_REASONABLE_PRESSURE_KPA 85.
-#define MAX_REASONABLE_PRESSURE_KPA 115.
+#define MIN_REASONABLE_PRESSURE_KPA 93.  // Assume at sea level...
+#define MAX_REASONABLE_PRESSURE_KPA 107.
 #define UPDATE_PERIOD_MS 1000
 #define LOG_PERIOD_MS 30000
 #define ESTIMATE_ALPHA 0.9
@@ -87,9 +87,9 @@ void Barometer::ReadConfigValues(){
     }
 }
 
-bool Barometer::is_pressure_sane(){
-    return (_pressure_estimate > MIN_REASONABLE_PRESSURE_KPA &&
-            _pressure_estimate < MAX_REASONABLE_PRESSURE_KPA);
+bool Barometer::is_pressure_sane(float estimate){
+    return (estimate > MIN_REASONABLE_PRESSURE_KPA &&
+            estimate < MAX_REASONABLE_PRESSURE_KPA);
 }
 
 bool Barometer::SetupLogging(SdFat *SD, String log_path)
@@ -154,12 +154,16 @@ float Barometer::UpdatePressureEstimate(){
     _raw_pressure_read_buffer_head =
         (_raw_pressure_read_buffer_head + 1)
         % PRESSURE_READ_BUFFER_LEN;
-    if (is_pressure_sane()){
-        _pressure_estimate = _pressure_estimate * ESTIMATE_ALPHA +
-                             new_raw_pressure * (1. - ESTIMATE_ALPHA);
+    if (is_pressure_sane(new_raw_pressure)){
+        if (is_pressure_sane(_pressure_estimate)){
+            _pressure_estimate = _pressure_estimate * ESTIMATE_ALPHA +
+                                 new_raw_pressure * (1. - ESTIMATE_ALPHA);
+        } else {
+            _pressure_estimate = new_raw_pressure;
+        }
     } else {
         ReadConfigValues();
-        _pressure_estimate = new_raw_pressure;
+        // Wait till next update cycle to try to read pressure.
     }
     return _pressure_estimate;
 }

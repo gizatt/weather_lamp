@@ -1,0 +1,3 @@
+[submodule "lib/ArduinoWebsockets"]
+	path = lib/ArduinoWebsockets
+	url = https://github.com/gizatt/ArduinoWebsockets
